@@ -1,0 +1,24 @@
+# external requirements
+altair
+altair-transform
+docopt
+Keras
+Keras-Applications
+Keras-Preprocessing
+Markdown
+matplotlib
+nltk
+numpy
+numpydoc
+pandas
+pyLDAvis
+requests
+scikit-learn
+spacy
+tensorflow
+tensorflow-estimator
+tensorflow-hub
+textblob
+tokenizers
+
+

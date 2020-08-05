@@ -1,0 +1,386 @@
+---
+title: "EDA"
+output: github_document
+author: "Carlina Kim, Karanpal Singh, Sukriti Trehan, Victor Cuspinera"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidyr)
+library(scales)
+library(stringr)
+library(tokenizers)
+library(tm)
+library(wordcloud)
+library(tidytext)
+library(magrittr)
+library(multipanelfigure)
+require(gridExtra)
+```
+
+These EDA's plots in R could be used for the R Shinny app, and/or give us ideas for the BC Stats Capstone Project.
+
+## Histograms
+
+```{r load datasets, include=FALSE}
+df_q1 <- readxl::read_excel("../../data/interim/question1_models/ministries_Q1.xlsx")
+df_q2 <- readxl::read_excel("../../data/interim/question2_models/ministries_Q2.xlsx")
+
+# # in case we want to replace the names of the Themes for their large names
+# df_q1 <- df_q1 %>% rename(
+#   Career_Personal_Development = CPD,
+#   Compensation_Benefits = CB,
+#   Engagement_Workplace_Culture = EWC,
+#   Executives = Exec,
+#   Flexible_Work_Environment = FEW,
+#   Staffing_Practices = SP,
+#   Recognition_Empowerment = RE,
+#   Supervisors = Sup,
+#   Stress_Workload = SW,
+#   Tools_Equipment_Physical_Environment = TEPE,
+#   Vision_Mission_Goals = VMG,
+#   Other  = OTH,
+#   Unrelated_comments = Unrelated
+# )
+```
+
+
+### Themes - question 1
+
+13 themes:
+  Career_Personal_Development = CPD,
+  Compensation_Benefits = CB,
+  Engagement_Workplace_Culture = EWC,
+  Executives = Exec,
+  Flexible_Work_Environment = FEW,
+  Staffing_Practices = SP,
+  Recognition_Empowerment = RE,
+  Supervisors = Sup,
+  Stress_Workload = SW,
+  Tools_Equipment_Physical_Environment = TEPE,
+  Vision_Mission_Goals = VMG,
+  Other  = OTH,
+  Unrelated_comments = Unrelated
+
+```{r themes, fig.width=8, fig.height=4, echo=FALSE}
+themes_q1 <- df_q1[3:14]
+themes_q1 <- themes_q1 %>% summarise_all(sum) %>% 
+  stack() %>% select(ind, values) %>% 
+  rename(
+    themes = ind,
+    count = values
+  ) %>% 
+  arrange(count) %>% 
+  mutate(themes=factor(themes, levels=themes)) 
+
+themes_q1 %>% ggplot(aes(x=themes, y=count)) +
+  geom_col(aes(alpha=count), fill="dodgerblue4") +
+  geom_text(aes(label=count, y=count+300), color="gray45") +
+  labs(title="Number of comments for Themes", 
+       subtitle="Question 1 - training dataset") +
+  coord_flip() +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+### Sub-themes - question 1
+
+63 themes
+
+```{r subthemes, fig.width=9, fig.height=10, echo=FALSE}
+subthemes_q1 <- df_q1[13:length(df_q1)-3]
+
+subthemes_q1 <- subthemes_q1 %>% summarise_all(sum) %>%
+  stack() %>% select(ind, values) %>%
+  rename(
+    subthemes = ind,
+    count = values
+  ) %>%
+  arrange(count) %>%
+  mutate(subthemes=factor(subthemes, levels=subthemes)) 
+
+subthemes_q1 %>% ggplot(aes(x=subthemes, y=count)) +
+  geom_col(aes(alpha=count), fill="dodgerblue4") +
+  geom_text(aes(label=count, y=count+400), color="gray45") +
+  labs(title="Number of comments for Sub-themes", 
+       subtitle="Question 1 - training dataset")+
+  coord_flip() +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+### Sub-themes group by Theme - question 1
+
+```{r subthemes_per_themes, fig.width=10, fig.height=15, echo=FALSE}
+all_q1 <- df_q1[13:length(df_q1)-3]
+
+all_q1 <- all_q1 %>% summarise_all(sum) %>%
+  stack() %>% select(ind, values) %>%
+  rename(
+    subthemes = ind,
+    count = values
+  ) %>%
+  arrange(count) %>%
+  mutate(subthemes=sub("EWC - Other", "EWC_Other", subthemes)) %>% 
+  mutate(subthemes=factor(subthemes, levels=subthemes))
+
+all_q1 %>% ggplot(aes(x=subthemes, y=count)) +
+  geom_col(aes(fill=-count)) +
+  geom_text(aes(label=count, y=count+400), color="gray45") +
+  labs(title="Number of comments for Theme and Sub-themes", 
+       subtitle="Question 1 - training dataset") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 30, hjust=1)) +
+  theme(legend.position = "none") +
+  facet_wrap(vars(str_extract(string = all_q1$subthemes, 
+                              pattern = "([A-Z][A-Za-z]+)(?=_)")),
+                              scales = "free_x")
+```
+
+### Relation between themes - question 1
+
+This section won't be used
+
+
+### Themes - question 2 (supervised dataset: 2018)
+
+This section won't be used.
+
+
+## Analysis by Words
+
+*Note: [__library `tokenizers`__, tokenization package in R](https://cran.r-project.org/web/packages/tokenizers/vignettes/introduction-to-tokenizers.html)*
+```{r tokens, echo=FALSE}
+tokens_original = tokenize_words(df_q1$Comment)
+```
+
+### Number of words - question 1
+
+```{r number words, fig.width=10, fig.height=15, echo=FALSE}
+words_per_comment = data.frame(
+  row = c(1:length(tokens_original)),
+  words_original = count_words(df_q1$Comment)
+)
+```
+
+```{r plot number words, fig.width=6, fig.height=3.5, echo=FALSE}
+colors <- c("Original" = "salmon", "Preprocess" = "dodgerblue4")
+
+words_plot <- words_per_comment %>% ggplot() +
+  geom_density(aes(words_original, fill="Original"), alpha=0.7) +
+  labs(title="Distribution of words for Original and Preprocess Comments",
+     subtitle="Question 1 - training dataset", 
+     x="number of words",
+     y="density",
+     fill = "Dataset") +
+  theme_bw() +
+  scale_fill_manual(values = colors)
+
+words_plot
+```
+
+### Number of words with log scale - question 1
+
+```{r plot number words log-scale, fig.width=6, fig.height=3.5, echo=FALSE}
+words_plot + scale_x_log10() +
+  labs(title="Distribution of words for Original and Preprocess Comments - log scale",
+     x="log(number of words)")
+```
+
+### Wordcloud - question 1
+
+```{r wordcloud, echo=FALSE}
+only_comments <- df_q1 %>% select(Comment)
+
+single_tokens <-
+          only_comments %>% unnest_tokens(word, Comment)
+
+words_df_q1 <- single_tokens %>% count(word) %>% anti_join(stop_words, by = "word")
+
+set.seed(42) # for reproducibility
+wordcloud(words = words_df_q1$word, freq = words_df_q1$n, min.freq = 1,
+          max.words=100, random.order=FALSE, rot.per=0.35,
+          colors=brewer.pal(8, "Dark2"))
+```
+
+### Wordcloud - question 2 (Unsupervised dataset: 2015, 2018, 2020)
+
+```{r wordcloud question 2, echo=FALSE}
+# wordcloud code
+only_comments <- df_q2 %>% select(Comment)# %>% anti_join(stop_words)
+
+single_tokens <-
+          only_comments %>% unnest_tokens(word, Comment)
+
+words_df_q2 <- single_tokens %>% count(word) %>% anti_join(stop_words, by = "word")
+
+set.seed(42) # for reproducibility
+wordcloud(words = words_df_q2$word, freq = words_df_q2$n, min.freq = 1,
+          max.words=100, random.order=FALSE, rot.per=0.35,
+          colors=brewer.pal(8, "Dark2"))
+```
+
+**Maybe it would be good to see the sentiment analysis of the words for both questions and compare them.**
+
+### Comparing words - question 1 vs. question 2
+
+```{r words q1 vs q2, fig.width=7, fig.height=7, echo=FALSE}
+# Dataframe of words from both questions
+aux_q1 <- tibble(words = words_df_q1$word, question_1=words_df_q1$n)
+aux_q2 <- tibble(words = words_df_q2$word, question_2=words_df_q2$n)
+both_q <- full_join(aux_q1, aux_q2, by="words")
+both_q[is.na(both_q)] <- 0
+
+# frequency
+frequency <- both_q %>%
+  mutate(question_1 = question_1 / sum(both_q$question_1),
+         question_2 = question_2 / sum(both_q$question_2))
+
+# expect a warning about rows with missing values being removed
+ggplot(frequency, aes(x = question_1, y = question_2, color = abs(question_1 + question_2))) +
+  geom_abline(color = "salmon", lty = 2, size =1) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = words), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  scale_color_gradient(trans = "log", low = "dodgerblue2", high = "gray20") +
+  labs(title="Frequency of words", subtitle = "Question 1 vs. question 2 (unsupervised)",
+       x = "Question 1", y = "Question 2") +
+  theme_bw() +
+  theme(legend.position="none")
+```
+
+It looks like both questions have words with close frequencies of repetitions.
+
+## Sentiment Analysis
+
+### Top positive and negative words - question 1 and question 2
+
+This section won't be used.
+
+```{r sentiment 1, fig.width=8, fig.height=8, echo=FALSE}
+
+# colors2 <- c("Question 1"="darkgreen", "Question 2"="orange")
+# 
+# # sentiment dataframe
+# sentiments <- merge(frequency, get_sentiments("bing"),
+#                     by.x="words", by.y="word")
+# sentiments <- sentiments %>% arrange(question_1, question_2) %>% 
+#   mutate(words=factor(words, levels=words))
+# 
+# # positive plot
+# positive_plot <- sentiments %>% filter(sentiment == "positive") %>%
+#   tail(60) %>%
+#   ggplot(aes(x=words)) +
+#   geom_col(aes(y=question_1, fill="Question 1"), alpha=0.7) +
+#   geom_col(aes(y=question_2, fill="Question 2"), alpha=0.6) +
+#   facet_wrap(~sentiment, scales = "free_y") +
+#   coord_flip() +
+#   labs(title="Sentiment Analysis",
+#      y="Density",
+#      fill = "Dataset") +
+#   theme_bw() +
+#   scale_fill_manual(values = colors2) +
+#   scale_y_continuous(labels = percent_format()) +
+#   theme(legend.position = "none") 
+# 
+# # negative plot
+# negative_plot <- sentiments %>% filter(sentiment == "negative") %>%
+#   tail(60) %>%
+#   ggplot(aes(x=words)) +
+#   geom_col(aes(y=question_1, fill="Question 1"), alpha=0.7) +
+#   geom_col(aes(y=question_2, fill="Question 2"), alpha=0.5) +
+#   facet_wrap(~sentiment, scales = "free_y") +
+#   coord_flip() +
+#   labs(title=" ",
+#        y="Density",
+#        x="",
+#      fill = "Dataset") +
+#   theme_bw() +
+#   scale_fill_manual(values = colors2) +
+#   scale_y_continuous(labels = percent_format())
+# 
+# # put together both plots
+# both_plots <- multi_panel_figure(columns = 7, rows = 1, 
+#                                  panel_label_type = "none")
+# both_plots %<>%
+#   fill_panel(positive_plot, column = 1:3, row = 1) %<>%
+#   fill_panel(negative_plot, column = 4:7, row = 1)
+# both_plots
+```
+
+### Wordcloud sentiment - question 1
+
+This section won't be used.
+
+```{r sentiment q1, fig.width=8, fig.height=4, echo=FALSE}
+# library(reshape2)
+# 
+# sentiments %>% 
+#   acast(words ~ sentiment, value.var = "question_1", fill = 0) %>%
+#   comparison.cloud(colors = c("salmon", "dodgerblue4"),
+#                    max.words = 90)
+```
+
+### Wordcloud sentiment - question 2
+
+This section won't be used.
+
+```{r sentiment q2, fig.width=8, fig.height=4, echo=FALSE}
+# library(reshape2)
+# 
+# sentiments %>% 
+#   acast(words ~ sentiment, value.var = "question_2", fill = 0) %>%
+#   comparison.cloud(colors = c("salmon", "dodgerblue4"),
+#                    max.words = 90)
+```
+
+## n-grams
+
+### Cloud of biagrams - question 1
+
+
+```{r bigrams quesrtion 1,  echo=FALSE}
+#fig.width=6, fig.height=6,
+library(dplyr)
+library(tidytext)
+library(igraph)
+library(ggraph)
+
+set.seed(42)
+
+# making the bigrams
+bigrams_q1 <- data.frame(df_q1) %>%
+  unnest_tokens(bigram, Comment, token ="ngrams", n=2)
+
+# count bigrams
+bigram_counts <- bigrams_q1 %>% 
+  count(bigram, sort = TRUE) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word)
+
+# filter for only relatively common combinations
+number_repetitions <- 80
+bigram_graph <- bigram_counts %>%
+  filter(n > number_repetitions) %>%
+  graph_from_data_frame()
+
+# plot
+arrow_type <- grid::arrow(type = "closed", length = unit(2, "mm"))
+
+ggraph(bigram_graph, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = arrow_type, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "salmon", size = 3) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+```
+
+
+## References
+- [Bryan J. (2019). **STAT 545, Data wrangling, exploration, and analysis with R.** Chapter 15 Join two tables](https://stat545.com/join-cheatsheet.html)
+- [Data Imaginist. (2020). **Introduction to ggraph: Edges**. Retrieved 2020-05-17](https://www.data-imaginist.com/2017/ggraph-introduction-edges/)
+- [Mullen L. (2018). **Introduction to the tokenizers Package.** CRAN R-project.](https://cran.r-project.org/web/packages/tokenizers/vignettes/introduction-to-tokenizers.html)
+- [Silge J., Robinson D. (2020-03-07). **Text Mining with R.** Retrieved: 2020-05-16](https://www.tidytextmining.com)

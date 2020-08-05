@@ -1,0 +1,2 @@
+,Model,Train Accuracy,Validation Accuracy,Test Accuracy,Valid Recall,Valid Precision,Valid F1,Test Recall,Test Precision,Test F1
+0,TF-IDF + LinearSVC,0.713,0.489,0.504,0.617,0.767,0.684,0.625,0.788,0.697

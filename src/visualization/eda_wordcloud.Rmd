@@ -1,0 +1,136 @@
+---
+title: "EDA wordcloud"
+author: "UBC-MDS Team"
+date: "20/05/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# load libraries
+library(tm)
+library(wordcloud)
+library(dplyr)
+library(tidytext)
+library(igraph)
+library(ggraph)
+library(reticulate)
+```
+
+These two wordcloud plots avoid `stopwords`. Additionally, in by-word analysis it avoids the word `staff` and for bigrams it avoids `would like`.
+
+Warning comment: this file take a while to `knit` becasue it uses the preprocess.py **python** script and after transfroms the results to **R**, to follow with the process.
+
+## By Word
+
+### Wordcloud - question 1
+```{r loading, include=FALSE}
+# read data
+wordcloud_q1 <- readxl::read_excel("../../data/interim/question1_models/ministries_Q1.xlsx")
+wordcloud_q2 <- readxl::read_excel("../../data/interim/question2_models/ministries_Q2.xlsx")
+```
+
+
+```{r wordcloud, echo=FALSE, fig.width=5, fig.height=5, warning=FALSE}
+# wordcloud code
+only_comments <- wordcloud_q1 %>% select(Comment)
+
+single_tokens <-
+          only_comments %>% unnest_tokens(word, Comment)
+
+words_df_q1 <- single_tokens %>%
+          filter(word != "staff") %>% 
+          count(word) %>%
+          anti_join(stop_words, by = "word")
+
+set.seed(42) # for reproducibility
+wordcloud(words = words_df_q1$word, freq = words_df_q1$n, min.freq = 1,
+          max.words=100, random.order=FALSE, rot.per=0.35,
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+### Wordcloud - question 2 (Unsupervised dataset: 2015, 2018, 2020)
+```{r wordcloud question 2, fig.width=5, fig.height=5,echo=FALSE, warning=FALSE}
+# wordcloud code
+only_comments <- wordcloud_q2 %>% select(Comment)# %>% anti_join(stop_words)
+
+single_tokens <-
+          only_comments %>% unnest_tokens(word, Comment)
+
+words_df_q2 <- single_tokens %>% 
+          filter(word != "staff") %>% 
+          count(word) %>% 
+          anti_join(stop_words, by = "word") 
+
+set.seed(42) # for reproducibility
+wordcloud(words = words_df_q2$word, freq = words_df_q2$n, min.freq = 1,
+          max.words=100, random.order=FALSE, rot.per=0.35,
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+## n-grams^[Note: For the bigram's wordcloud we use the preprocessed comments, but we didn't remove any additional words.]
+
+```{python preprocess, echo=FALSE}
+import sys
+sys.path.append('../../src/data/')
+from preprocess import Preprocessing
+
+comment_q1_py = r["wordcloud_q1['Comment']"]
+comment_q2_py = r["wordcloud_q2['Comment']"]
+
+pp_q1_py = Preprocessing().general(comment_q1_py['Comment'])
+pp_q2_py = Preprocessing().general(comment_q2_py['Comment'])
+```
+
+```{python, include=FALSE}
+# # To run in python we could use:
+# pp_q1_py
+```
+
+```{r, include=FALSE}
+# # To run in R we can use:
+# py$pp_q1_py
+
+# pass the preprocessed data from python to R, for both questions
+pp_q1_r <- data.frame(Comment = py$pp_q1_py)
+df_q1 <- tibble::rowid_to_column(pp_q1_r, "ID")
+
+pp_q2_r <- data.frame(Comment = py$pp_q2_py)
+df_q2 <- tibble::rowid_to_column(pp_q2_r, "ID")
+
+```
+
+
+### Wordcloud of biagrams - question 1
+
+
+```{r bigrams question 1, fig.width=5, fig.height=5, echo=FALSE, warning=FALSE}
+# making the bigrams
+bigrams_q1 <- df_q1 %>% 
+  unnest_tokens(bigram, Comment, token ="ngrams", n=2) %>% 
+  filter(bigram != "would like") %>%
+  count(bigram, sort = TRUE)
+
+# wordcloud code
+pal=brewer.pal(8,"Blues")
+pal=pal[-(1:3)]
+wordcloud(bigrams_q1$bigram, bigrams_q1$n, max.words=75,random.order = F, colors=brewer.pal(8, "Dark2"))
+```
+
+### Wordcloud of biagrams - question 2
+
+
+```{r bigrams question 2, fig.width=5, fig.height=5, echo=FALSE, warning=FALSE}
+# making the bigrams
+bigrams_q2 <- df_q2 %>%
+  unnest_tokens(bigram, Comment, token ="ngrams", n=2) %>% 
+  count(bigram, sort = TRUE)
+
+# wordcloud code
+pal=brewer.pal(8,"Blues")
+pal=pal[-(1:3)]
+wordcloud(bigrams_q2$bigram, bigrams_q2$n, max.words=75,random.order = F, colors=brewer.pal(8, "Dark2"))
+```

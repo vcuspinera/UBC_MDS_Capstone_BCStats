@@ -1,0 +1,342 @@
+---
+title: "BC Stats Proposal"
+subtitle: "Text Analytics: <br> Quantifying the Responses to Open-Ended Survey Questions"
+author: "Carlina Kim, Karanpal Singh, Sukriti Trehan, Victor Cuspinera <br> Partner: Nasim Taba | Mentor: Varada Kolhatkar"
+date: '2020-05-07'
+output:
+  ioslides_presentation:
+    widescreen: true
+    smaller: true
+    logo: figures/BCStats_logo.png
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r load_packages, warning=FALSE}
+library(vegawidget)
+library(reticulate)
+library(timevis)
+use_python('/usr/local/bin/python')
+```
+
+```{python libraries_import, include=FALSE}
+import pandas as pd
+import numpy as np
+import altair as alt
+```
+
+## Introduction
+
+<div class= "columns-2">
+
+<img src="figures/WES_report2018.png" width="350"/>
+
+<br>  
+
+**Work Environment Survey (WES)**  
+ 
+  - Survey conducted by BC Stats for employees of BC Public Service.
+  
+  - Measures the health of the work environments.
+  
+  - 80 multiple choice questions (5 point scale) and 2 open-ended questions.
+  
+  - 2013, 2015, 2018, and 2020 across 26 Ministries.
+  
+</div>
+
+## Introduction | Open-ended Questions
+
+**Question 1**  
+
+### <b> <span style="color:#005c99">
+What one thing would you like your organization to focus on to improve your work environment? </span></b>
+
+Example: *"Better health and social benefits should be provided."*
+
+<br>
+
+**Question 2**
+
+### <b> <span style="color:#005c99">
+Have you seen any improvements in your work environment and if so, what are the improvements?
+</span> </b>
+
+Example: *"Now we have more efficient vending machines."*
+
+<br>
+<br>
+<font size="3"> *Note: these are fake comments as examples of the data. </font>
+
+## Objectives 
+
+**Overarching goal:  
+Use automated multi-label theme classification of comments to themes and sub-themes.**
+
+**Question 1**  
+<font size="3">What one thing would you like your organization to focus on to improve your work environment?</font></span></b>
+
+- <span style="color:#005c99">Build a model</span> for predicting label(s) for main <span style="color:#005c99">themes</span>.
+- <span style="color:#005c99">Build a model</span> for predicting label(s) for <span style="color:#005c99">sub-themes</span>.
+- Scalability: Identify <span style="color:#005c99">trends across ministries</span> and over the four specified years.
+
+<br>
+
+**Question 2**  
+<font size="3">Have you seen any improvements in your work environment and if so, what are the improvements?</font></span></b>  
+
+- <span style="color:#005c99">Identify labels</span> for theme classification and compare with existing labels.
+- <span style="color:#005c99">Build a model</span> for predicting label(s) for <span style="color:#005c99">themes</span>.
+- Create <span style="color:#005c99">visualizations for executives</span> to explore the results.
+
+## Existing Solution for Question 1 | Last year's Capstone
+Objective:
+- To build a model for predicting label(s) for themes
+
+<img src="figures/results_capstone_2019.png" width="900"/>
+
+<font size="3">*Source: [BC Stats Capstone 2019-Final Report, by A. Quinton, A. Pearson, F. Nie](https://github.com/aaronquinton/mds-capstone-bcstats/blob/master/reports/BCStats_Final_Report.pdf)*</font>
+
+We aim to improve accuracy for predicting label(s) for main themes respective of previous capstone project results.
+
+
+## Getting Familiar with the Data
+
+- Separate Data for each question, and each year.
+- Comments with sensitive information.
+- Files in XLSX -Excel format-.
+<br>
+<br>
+
+**Question 1**  
+<font size="3">What one thing would you like your organization to focus on to improve your work environment?</font>
+
+- <span style="color:#005c99">**Labeled data from 2013, 2018, 2020**</span>, added to around 32,000 respondents.
+<br>
+<br>
+
+**Question 2**  
+<font size="3">Have you seen any improvements in your work environment and if so, what are the improvements?</font></span></b>  
+
+- <span style="color:#005c99">**Labeled data from 2018**</span>, which add around 6,000 respondents.
+<br>
+- <span style="color:#005c99">**Unlabeled data from 2015 and 2020**</span>, that respresent 9,000 additional comments.
+
+## EDA | Question 1
+
+**Dataset format**<br>
+Responses for this question are captured and labeled (theme and sub-theme) by hand:
+
+<br>
+
+|Comments*|CPD|CB|EWC|...|CB_Improve_benefits|CB_Increase_salary|
+|:----|:---:|:---:|:---:|:---:|:---:|:---:|
+|Better health and social benefits should be provided|0|1|0|...|1|0|
+
+<br>
+<br>
+
+**Theme**: CB = Compensation and Benefits
+<br>
+
+**Sub-theme**: CB_Improve_benefits = Improve benefits
+<br>
+<br>
+
+<font size="3"> *Note: this is a fake comment as an example of the data. </font>
+
+## EDA | Question 1
+Labels: <span style="color:#005c99">13 themes</span> and <span style="color:#005c99">63 sub-themes</span>.
+
+<center>
+```{python}
+#reading in the train data for themes
+data_train_q1 = pd.read_csv('../data/y_train.csv')
+
+#reading in theme codes to names csv
+code_names = pd.read_csv('../data/theme_to_codes.csv')
+
+# wrangling train data for counts per theme
+theme_data = data_train_q1.iloc[:, list(range(12))+[-1]]
+theme_table = pd.DataFrame(np.sum(theme_data, axis=0)).reset_index()
+theme_table.rename(columns={'index':'theme_codes', 0:'count'}, inplace=True)
+
+theme_table['theme_codes'].replace({'FEW':'FWE'}, inplace=True)
+theme_table_final = pd.merge(theme_table, code_names)
+
+theme_chart_q1 = alt.Chart(theme_table_final, width=600, height=300, title='Number of comments for themes in training data').mark_bar().encode(
+    y=alt.Y('theme_names:N', sort='-x', title = 'themes'),
+    x=alt.X('count:Q'),
+    opacity=alt.Opacity('count:Q', legend=None),
+    tooltip='count:Q'
+).configure_axisX(
+    #labelAngle = -45
+).to_json()
+```
+
+```{r}
+as_vegaspec(py$theme_chart_q1)
+```
+</center>
+Label cardinality for themes: **~1.4**
+
+## EDA | Question 1
+```{python}
+data_train_num_q1 = pd.read_csv('../data/y_train_num.csv')
+codes = pd.read_csv('../data/theme_code_names.csv')
+subtheme_y_data = data_train_num_q1.iloc[:, 12:99]
+subtheme_y_data = subtheme_y_data.fillna(0)
+subtheme_count = pd.DataFrame(np.sum(subtheme_y_data, axis=0)).reset_index()
+subtheme_count.rename(columns={'index':'subtheme_code', 0:'count'}, inplace=True)
+subtheme_count['theme_code'] = subtheme_count['subtheme_code'].str.split('.').str[0]
+subtheme_count['theme_code'] = pd.to_numeric(subtheme_count['theme_code'])
+```
+<center>
+```{python}
+final_train_subtheme_table = pd.merge(subtheme_count, codes)
+facet_chart = alt.Chart(final_train_subtheme_table, title = 'Comments per sub-themes in training dataset', height=50, width=125).mark_bar().encode(
+    x=alt.X('subtheme_code:N', 
+            title="sub-themes",
+            sort=alt.EncodingSortField(field='count')),
+    y=alt.Y('count:Q'),
+    opacity=alt.Opacity('count:Q', legend=None),
+    tooltip='count:Q'
+).facet(
+    facet = 'theme_name:O',
+    title = "Comments per sub-themes in training dataset",
+    columns = 4
+).resolve_scale(
+    x='independent'
+).to_json()
+```
+
+```{r}
+library(vegawidget)
+as_vegaspec(py$facet_chart)
+```
+</center>
+Label cardinality for sub-themes: **~1.6**
+
+## EDA | Question 2
+Labels for 2018: <span style="color:#005c99">6 themes</span> and <span style="color:#005c99">16 sub-themes</span>
+
+<center>
+```{python}
+# reading in training data  
+y_train_q2 = pd.read_csv('../data/y_train_q2.csv')
+
+# wrangling training data to get count of comments per label
+q2_class_df = pd.DataFrame(np.sum(y_train_q2)).reset_index()
+q2_class_df = q2_class_df.rename(columns={'index':'themes', 0:'count'})
+
+theme_count_q2 = alt.Chart(q2_class_df, width=600, height=300, title='Number of comments for themes in training data').mark_bar().encode(
+    y=alt.Y('themes:N', sort='-x', title = 'themes'),
+    x=alt.X('count:Q'),
+    opacity=alt.Opacity('count:Q', legend=None),
+    tooltip='count:Q'
+).configure_axisX(
+    #labelAngle = -45
+).to_json()
+```
+
+```{r}
+as_vegaspec(py$theme_count_q2)
+```
+</center>
+Label cardinality: **~1.6**
+
+
+## Challenges
+- <span style="color:#005c99">Decide appropriate metric for evaluating accuracy</span> (considering partial correctness) for multi-label prediction problem.
+
+<br>
+
+- Low label cardinality indicating <span style="color:#005c99">sparsity</span> in training data
+  - ~2 labels per comment from ~60 labels.
+ 
+<br>
+
+- Build a model with increased performance -<span style="color:#005c99">higher label precision and recall</span>- than the MDS team last year so that it <span style="color:#005c99">can be deployed by BC Stats</span>.
+
+<br>
+
+- <span style="color:#005c99">Class Imbalance</span> in the data
+  - skeweness in number of comments per label.
+
+## Techniques | Question 1
+<span style="color:#005c99">Binary Relevance</span> - Base Model from last year's Captsone
+<center>
+  <img src="./figures/x.png" width='18%'/>
+  
+  <img src="./figures/br_train.png" width='32%'/>
+</center>
+<br>
+<font size="3">*Source: [Multi-Label Classification: Binary Relevance, by Analytics Vidhya](https://www.analyticsvidhya.com/blog/2017/08/introduction-to-multi-label-classification/)*</font>
+
+
+## Techniques | Question 1
+<span style="color:#005c99">Classifier Chains</span> - Proposed Base Model
+<center>
+  <img src="./figures/cc_x.png" width='25%'/>
+  
+  <img src="./figures/cc_train.png" width='80%'/>
+</center>
+<br>
+
+- Multi-Label Classification using TF-IDF Vectorizer with Classifier Chain.
+
+<br>
+<font size="3">*Source: [Multi-Label Classification: Classifier Chains, by Analytics Vidhya](https://www.analyticsvidhya.com/blog/2017/08/introduction-to-multi-label-classification/)*</font>
+
+
+## Techniques | Question 2
+
+**Theme Identifications**
+
+- Use clustering algorithms like <span style="color:#005c99">PCA</span> and <span style="color:#005c99">Topic Modelling</span>
+
+<br>
+<br>
+
+**Scalability**
+
+- Descriptive Statistics using Matplotlib, Altair and Plotly
+  - Identify trends over the years
+  - Identify trends across Ministries
+
+
+## Deliverables
+
+- **<span style="color:#005c99">Data pipeline</span> with the documentation for our models**
+
+<br>
+
+- **<span style="color:#005c99">Dash app</span> that displays the trends across ministries for both qualitative questions**
+
+<center>
+  <img src="./figures/Dash_app_sketch.png" width='62%'/>
+</center>
+<font size="3">*Source: Dash app's sketch, based in [app developed by BC Stats for the Workforce Profiles Report 2018](https://www.analyticsvidhya.com/blog/2017/08/introduction-to-multi-label-classification/).*</font><br>
+<font size="3">Note: This figure is just for illustrative purpose, the final version of the app could differ from the sketch.</font>
+
+
+## Timeline
+
+```{r timeline, include=FALSE}
+data <- data.frame(
+  id      = 1:7,
+  content = c("Today"  , "Base Model"  ,"Advanced Models","Dashboards","Project Reports", 
+               "Project Integration", "Feedback"),
+  start   = c("2019-05-08", "2019-05-11", "2019-05-18", "2019-05-20" ,"2019-05-25", "2019-06-01", "2019-06-12"),
+  end     = c(NA          , "2019-05-18", "2019-06-01","2019-06-12","2019-06-12", "2019-06-12", "2019-06-17"),
+  editable = TRUE
+)
+
+timevis(data, options = list( showCurrentTime = FALSE))
+
+```
+<img src="./figures/plan.png" width='100%'/>
+
+
