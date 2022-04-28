@@ -7,15 +7,15 @@ BC Stats Capstone project 2020
 [![License:
 MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Authors**: Carlina Kim, Karanpal Singh, Sukriti Trehan, Victor Cuspinera  
-**Mentor**: Varada Kolhatkar  
-**Partner**: [BC Stats](https://www2.gov.bc.ca/gov/content/data/about-data-management/bc-stats)
+**Authors**: [Carlina Kim](https://github.com/carlinakim), [Karanpal Singh](https://github.com/singh-karanpal), [Sukriti Trehan](https://github.com/Sukriti1312), [Victor Cuspinera](https://github.com/vcuspinera)  
+**Mentor**: [Varada Kolhatkar](https://github.com/kvarada)  
+**Partner**: [BC Stats](https://www2.gov.bc.ca/gov/content/data/about-data-management/bc-stats) 
 
 ## About
 BC Stats conducts the Work Environment Survey (WES) on BC Public Service’s ministries with the goal of identifying areas for improvement and understanding employee’s experiences in the working environment. Currently, the comments to the open-ended questions have been manually encoded. Given a large number of employees across their 26 ministries, hand-labelling comments is expensive and time-consuming. In this project we propose using natural language processing and machine learning classification techniques to automate the labelling of text responses with the goals of build an useful model to automate multi-label text classification and gather insight on trends by themes across Ministries.
 
 ## Report
-The final report is available [here](https://github.com/UBC-MDS/591_capstone_2020_bc-stats-mds/blob/master/reports/Final_Report.pdf).
+The final report is available [here](https://github.com/vcuspinera/UBC_MDS_Capstone_BCStats/blob/master/reports/Final_Report.pdf).
 
 ## Dependencies
 
